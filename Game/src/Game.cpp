@@ -4,6 +4,8 @@
 #include <math.h>
 #include <SDL_image.h>
 
+#include <Box2D\Box2D.h>
+
 // Initializing our static member pointer.
 GameEngine* GameEngine::_instance = nullptr;
 
@@ -54,6 +56,26 @@ void Game::InitializeImpl()
   SDL_GetWindowSize(_window, &windowSize.x, &windowSize.y);
 
   _testTexturePosition = { windowSize.x / 2, windowSize.y / 2 };
+
+
+  // Initialize our Box2D world.
+  b2Vec2 gravity(0.0f, 1.0f);
+
+  _world = new b2World(gravity);
+
+  // Create the definition for our body.
+  b2BodyDef boxBodyDef;
+  boxBodyDef.type = b2_dynamicBody;
+
+  _boxBody = _world->CreateBody(&boxBodyDef);
+  b2Vec2 boxPosition(250, 0);
+  _boxBody->SetTransform(boxPosition, 0.0f);
+
+  b2PolygonShape boxShape;
+  boxShape.SetAsBox(5, 5);
+
+  _boxFixture = _boxBody->CreateFixture(&boxShape, 0.0f);
+
 }
 
 void Game::UpdateImpl(float dt)
@@ -120,5 +142,29 @@ void Game::CalculateDrawOrder(std::vector<GameObject *>& drawOrder)
       objectsCopy.erase(farthestEntry);
       farthestEntry = objectsCopy.begin();
     }
+  }
+}
+
+void Game::DrawShape(SDL_Renderer *renderer, b2Body *body, b2Fixture *fixture)
+{
+  SDL_Point points[4];
+  b2Vec2 position = body->GetPosition();
+
+  b2PolygonShape* polygonShape = (b2PolygonShape *)fixture->GetShape();
+  for (int vertexIndex = 0; vertexIndex < polygonShape->GetVertexCount(); vertexIndex++)
+  {
+    const b2Vec2 vertex = polygonShape->GetVertex(vertexIndex);
+    points[vertexIndex].x = (float)(vertex.x + position.x);
+    points[vertexIndex].y = (float)(vertex.y + position.y);
+  }
+
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+
+  for (int vertexIndex = 0; vertexIndex < polygonShape->GetVertexCount(); vertexIndex++)
+  {
+    SDL_Point &firstPoint = points[vertexIndex];
+    SDL_Point &secondPoint = points[(vertexIndex + 1) % polygonShape->GetVertexCount()];
+
+    SDL_RenderDrawLine(renderer, firstPoint.x, firstPoint.y, secondPoint.x, secondPoint.y);
   }
 }
